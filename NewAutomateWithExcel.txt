@@ -1,0 +1,36 @@
+﻿# Open an Excel workbook first:
+$ExcelObj = New-Object -comobject Excel.Application
+$ExcelWorkBook = $ExcelObj.Workbooks.Open("Z:\Script\AutomateNewUsers1.xlsx")
+$ExcelWorkSheet = $ExcelWorkBook.Sheets.Item("Sheet1")
+
+# Get the number of filled in rows in the XLSX worksheet
+$rowcount=$ExcelWorkSheet.UsedRange.Rows.Count
+
+# Loop through all rows in Column 1 & 2 starting from Row 2 (these cells contain the domain First & Last names)
+for($i=2; $i -le $rowcount; $i++){
+    $firstname=$ExcelWorkSheet.Columns.Item(1).Rows.Item($i).Text
+    $lastname=$ExcelWorkSheet.Columns.Item(2).Rows.Item($i).Text
+
+    # Get the values of user attributes in AD
+    $ADuserProp = Get-ADUser -Filter "(surname -eq '$($lastname)') -and (givenname -eq '$($firstname)')" -properties samaccountname,lastlogondate,mail|select-object name,samaccountname,lastlogondate,mail
+    
+    # Fill in the cells with the data received from AD
+    $ExcelWorkSheet.Columns.Item(3).Rows.Item($i) = $ADuserProp.samaccountname
+    $ExcelWorkSheet.Columns.Item(4).Rows.Item($i) = $ADuserProp.lastlogondate
+    $ExcelWorkSheet.Columns.Item(5).Rows.Item($i) = $ADuserProp.mail
+
+    #If user not created on AD, display red cell
+    if (!$ADuserProp.samaccountname) {
+        $ExcelWorkSheet.Columns.Item(3).Rows.Item($i).Interior.ColorIndex = 3
+    }
+
+    #If user not created on Microsoft Outlook Global Address List, display blue cell
+    if (!$ADuserProp.mail) {
+        $ExcelWorkSheet.Columns.Item(5).Rows.Item($i).Interior.ColorIndex = 5
+    }
+
+}
+
+# Save the XLS file and close Excel
+$ExcelWorkBook.Save()
+$ExcelWorkBook.close($true)
